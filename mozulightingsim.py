@@ -232,27 +232,27 @@ def app_draw_simulator() -> None:
     if st_smoke_l:
         g.rgbcolor(0x444444)
         g.fill(base_x + 30, base_y + 40, base_x + 100, base_y + 100)
-    draw_fixture(base_x + 50, base_y + 40, "SMK.L", 100, 150, 255, st_smoke_l)
+    draw_fixture(base_x + stage_w * 0.2, base_y + stage_h * 0.8, "SMK.L", 100, 150, 255, st_smoke_l)
 
     if st_smoke_r:
         g.rgbcolor(0x444444)
         g.fill(base_x + stage_w - 100, base_y + 40, base_x + stage_w - 30, base_y + 100)
-    draw_fixture(base_x + stage_w - 70, base_y + 40, "SMK.R", 100, 150, 255, st_smoke_r)
+    draw_fixture(base_x + stage_w * 0.8, base_y + stage_h * 0.8, "SMK.R", 100, 150, 255, st_smoke_r)
 
 
     # --- ハロゲン＆ストロボ (ステージ脇左右) ---
     # 左側 (上から ハロゲン1 -> ストロボ -> ハロゲン2)
-    draw_fixture(base_x + 50, base_y + 90, "HLG.L1", 255, 180, 50, st_halo_l1)
+    draw_fixture(base_x + stage_w * 0.1, base_y + stage_h * 0.4, "HLG.L1", 255, 180, 50, st_halo_l1)
     
     strb_val = 255 if (st_strobe and blink) else 0
-    draw_fixture(base_x + 50, base_y + 140, "STRB.L", strb_val, strb_val, strb_val, 1 if strb_val>0 else 0)
-    
-    draw_fixture(base_x + 50, base_y + 190, "HLG.L2", 255, 180, 50, st_halo_l2)
+    draw_fixture(base_x + stage_w * 0.1, base_y + stage_h * 0.6, "STRB.L", strb_val, strb_val, strb_val, 1 if strb_val>0 else 0)
+
+    draw_fixture(base_x + stage_w * 0.1, base_y + stage_h * 0.8, "HLG.L2", 255, 180, 50, st_halo_l2)
     
     # 右側
-    draw_fixture(base_x + stage_w - 70, base_y + 90, "HLG.R1", 255, 180, 50, st_halo_r1)
-    draw_fixture(base_x + stage_w - 70, base_y + 140, "STRB.R", strb_val, strb_val, strb_val, 1 if strb_val>0 else 0)
-    draw_fixture(base_x + stage_w - 70, base_y + 190, "HLG.R2", 255, 180, 50, st_halo_r2)
+    draw_fixture(base_x + stage_w * 0.9, base_y + stage_h * 0.4, "HLG.R1", 255, 180, 50, st_halo_r1)
+    draw_fixture(base_x + stage_w * 0.9, base_y + stage_h * 0.6, "STRB.R", strb_val, strb_val, strb_val, 1 if strb_val>0 else 0)
+    draw_fixture(base_x + stage_w * 0.9, base_y + stage_h * 0.8, "HLG.R2", 255, 180, 50, st_halo_r2)
 
 
     # --- 目つぶし (ステージ中ほど左右) ---
@@ -272,40 +272,63 @@ def app_draw_simulator() -> None:
     draw_fixture(base_x + stage_w * 3 // 4 - 24, base_y + 200, "MOV.R", 220, 240, 255, st_moving)
 
         
-    # --- 既存の論理デバイス (LEDパラライト等) ---
-    # 配置したい [X座標, Y座標] のリストを作成
-    led_positions = [
-        [150, 40], # 0番目のLEDの座標
-        [200, 40], # 1番目のLEDの座標
-        [250, 40], # 2番目のLEDの座標
-        [150, 80], # 3番目のLEDの座標
-        # ... デバイスの数だけ書く
-    ]
-
+    # --- 既存の論理デバイス (マルチピクセル・マルチ座標対応) ---
     for devcnt, dev in enumerate(a.logidev_obj):
-        if dev is None: continue
+        if dev is None:
+            continue
+            
+        conf = a.logidev_conf[devcnt]
         
-        # リストの範囲内ならリストの座標を使い、足りなければ適当な場所に置く
-        if devcnt < len(led_positions):
-            pos_x = base_x + led_positions[devcnt][0]
-            pos_y = base_y + led_positions[devcnt][1]
-        else:
-            pos_x = base_x + 150 + (devcnt * 50)
-            pos_y = base_y + 40
+        # "sim_pos" の設定がなければスキップ
+        if "sim_pos" not in conf or not isinstance(conf["sim_pos"], list):
+            continue
+            
+        pos_list = conf["sim_pos"]
+
+        # --------------------------------------------------------
+        # 【変更点】デバイスが持つ「全て」のRGB値を取得し、リストに格納する
+        # --------------------------------------------------------
+        colors = [] # [(r, g, b), (r, g, b), ...] のリスト
         
-        r, g_val, b_val = 0, 0, 0
         if "displayparam" in dir(dev):
             for c in dev.displayparam():
+                # カテゴリが "color.rgb" のものを「すべて」拾い上げる（breakしない）
                 if c["category"] == "color.rgb" and c["type"] == "int" and "alloc" in c:
                     r = a.physidev_obj.get(c["alloc"] + 0)
                     g_val = a.physidev_obj.get(c["alloc"] + 1)
                     b_val = a.physidev_obj.get(c["alloc"] + 2)
-                    break
-                    
-        is_on = 1 if (r + g_val + b_val > 0) else 0
-        name = a.logidev_conf[devcnt].get("name", f"Dev{devcnt}")
-        draw_fixture(pos_x, pos_y, name, r, g_val, b_val, is_on)
-
+                    colors.append((r, g_val, b_val))
+        
+        # 色情報が一つも取れなかった場合は、消灯状態として扱う
+        if len(colors) == 0:
+            colors = [(0, 0, 0)]
+            
+        name = conf.get("name", f"L{devcnt}")
+        
+        # --------------------------------------------------------
+        # 座標(sim_pos)の数だけループして描画する
+        # --------------------------------------------------------
+        for i, pos in enumerate(pos_list):
+            print(f"Position {i}: {pos}")
+            if len(pos) >= 2:
+                rel_x = base_x + stage_w * float(pos[0])
+                rel_y = base_y + stage_h * float(pos[1])
+                
+                # 複数描画時は名前に連番をつける
+                display_name = name if i == 0 else ""
+                
+                # 【ポイント】
+                # i番目の座標には、i番目の色(colors[i])を適用する。
+                # もし座標の数より取得した色の数が少ない場合(単一カラーの機材など)は、
+                # 最後の色(colors[-1])を使い回す(または最初の色を使い回す)。
+                color_index = i if i < len(colors) else -1
+                current_r, current_g, current_b = colors[color_index]
+                
+                is_on = 1 if (current_r + current_g + current_b > 0) else 0
+                
+                # 描画関数呼び出し
+                
+                draw_fixture(rel_x, rel_y, display_name, current_r, current_g, current_b, is_on)
 
     # --- LED TAPE ---
     # ステージの最前列（手前）に横長に配置
@@ -1010,7 +1033,7 @@ if __name__ == "__main__":
     # ↑ 100msあたりの変化量
     g = sgpg.sgpg()
     g.screen(0, 800, 500, 32)
-    g.title("Light Controller v0.1")
+    g.title("Mozu Lighting Simulator")
     print("本ソフトウェアはフォント「IPAexゴシック」を使用しています。IPAexゴシックの利用には、IPAフォントライセンスv1.0に同意する必要があります。詳しくは IPA_Font_License_Agreement_v1.0.txt をご覧ください。")
     app_init()
     g.stop()
