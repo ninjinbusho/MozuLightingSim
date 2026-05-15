@@ -129,16 +129,16 @@ def app_init() -> None:
         g.logmes("[slf] Initialized keyboard handler named \"" + a.controller_app_conf["keybd-modname"] + "\"")
         
         
-        # tape
-        if "tape" in a.devconf.keys():
-            if "port" in a.devconf["tape"]:
-                try:
-                    a.controller_app_state["tape-obj"].port.port = "COM" + str(a.devconf["tape"]["port"])
-                    a.controller_app_state["tape-obj"].port.open()
-                    a.controller_app_state["tape-stat-good"] = True
-                    a.controller_app_state["tape-obj"].send_reset()
-                except Exception as e:
-                    print("ERR ", e)
+        # # tape
+        # if "tape" in a.devconf.keys():
+        #     if "port" in a.devconf["tape"]:
+        #         try:
+        #             a.controller_app_state["tape-obj"].port.port = "COM" + str(a.devconf["tape"]["port"])
+        #             a.controller_app_state["tape-obj"].port.open()
+        #             a.controller_app_state["tape-stat-good"] = True
+        #             a.controller_app_state["tape-obj"].send_reset()
+        #         except Exception as e:
+        #             print("ERR ", e)
 
         g.neweventhandler("PG_WINDOWRESIZED", app_proc_windowresized)
         g.neweventhandler("PG_TICK", app_proc_tick)
