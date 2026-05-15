@@ -174,32 +174,31 @@ def app_draw_simulator() -> None:
     g.text("STAGE SIMULATOR (FULL)", 1)
 
     # ====================================================
-    # 【1. データ取得部】
-    # ※以下の変数はダミーです。実際の制御変数(DMX値やフラグ)をここに代入してください。
+    # 【1. データ取得部】 (キー操作と連動)
     # ====================================================
-    # 1: ON, 0: OFF と仮定します
-    st_halo_l1 = 1; st_halo_l2 = 0
-    st_halo_r1 = 1; st_halo_r2 = 0
-    st_strobe  = 1  # 左右同期
-    st_moving  = 1  # 左右同期
-    st_smoke_l = 1
-    st_smoke_r = 0
+    # state から値を取得し、設定されていなければ 0(OFF) にする
+    st_halo_l1 = a.controller_app_state.get("sim_halo_l1", 0)
+    st_halo_l2 = a.controller_app_state.get("sim_halo_l2", 0)
+    st_halo_r1 = a.controller_app_state.get("sim_halo_r1", 0)
+    st_halo_r2 = a.controller_app_state.get("sim_halo_r2", 0)
+    st_strobe  = a.controller_app_state.get("sim_strobe", 0)
+    st_moving  = a.controller_app_state.get("sim_moving", 0)
+    st_smoke_l = a.controller_app_state.get("sim_smoke_l", 0)
+    st_smoke_r = a.controller_app_state.get("sim_smoke_r", 0)
+    st_blinder_warm = a.controller_app_state.get("sim_blinder_warm", 0)
+    st_blinder_cool = a.controller_app_state.get("sim_blinder_cool", 0)
     
-    # 目つぶし (0〜255のフェーダー値と仮定)
-    st_blinder_warm = 200 # 電球色
-    st_blinder_cool = 100 # 昼白色
     
-    # ブラックアウト状態の反映 (既存のフラグを利用)
-    if a.controller_app_state.get("blackout", 0) == 1:
-        st_blinder_warm = 0
-        st_blinder_cool = 0
-        st_strobe = 0
-        st_moving = 0
-        st_halo_l1 = 0; st_halo_l2 = 0; st_halo_r1 = 0; st_halo_r2 = 0
-        # スモークはBO中も出せることが多いのでそのままにしています
+    # 現在のブラックアウト状態を取得
+    is_bo = a.controller_app_state.get("blackout", 0) == 1
+    blink = 1 if (time.time_ns() // 1000000) % 100 < 50 else 0
         
     # ストロボの点滅フラグ生成 (約50ms周期で点滅)
     blink = 1 if (time.time_ns() // 1000000) % 100 < 50 else 0
+    
+    # スイッチの状態を取得 (デフォルトは 1:ON)
+    st_blinder_switch = a.controller_app_state.get("sim_blinder_switch", 1)
+
 
     # ====================================================
     # 【2. 機材描画の補助関数】
@@ -231,45 +230,71 @@ def app_draw_simulator() -> None:
     # スモークが出ている時は本体の前にグレーのモヤを描画
     if st_smoke_l:
         g.rgbcolor(0x444444)
-        g.fill(base_x + 30, base_y + 40, base_x + 100, base_y + 100)
+        g.fill(base_x + stage_w * 0.15, base_y + stage_h * 0.75, base_x + stage_w * 0.35, base_y + stage_h * 0.95)
     draw_fixture(base_x + stage_w * 0.2, base_y + stage_h * 0.8, "SMK.L", 100, 150, 255, st_smoke_l)
 
     if st_smoke_r:
         g.rgbcolor(0x444444)
-        g.fill(base_x + stage_w - 100, base_y + 40, base_x + stage_w - 30, base_y + 100)
+        g.fill(base_x + stage_w * 0.65, base_y + stage_h * 0.75, base_x + stage_w * 0.85, base_y + stage_h * 0.95)
     draw_fixture(base_x + stage_w * 0.8, base_y + stage_h * 0.8, "SMK.R", 100, 150, 255, st_smoke_r)
 
 
     # --- ハロゲン＆ストロボ (ステージ脇左右) ---
     # 左側 (上から ハロゲン1 -> ストロボ -> ハロゲン2)
-    draw_fixture(base_x + stage_w * 0.1, base_y + stage_h * 0.4, "HLG.L1", 255, 180, 50, st_halo_l1)
+    draw_fixture(base_x + stage_w * 0.1, base_y + stage_h * 0.8, "HLG.L1", 255, 230, 170, st_halo_l1)
     
     strb_val = 255 if (st_strobe and blink) else 0
     draw_fixture(base_x + stage_w * 0.1, base_y + stage_h * 0.6, "STRB.L", strb_val, strb_val, strb_val, 1 if strb_val>0 else 0)
 
-    draw_fixture(base_x + stage_w * 0.1, base_y + stage_h * 0.8, "HLG.L2", 255, 180, 50, st_halo_l2)
+    draw_fixture(base_x + stage_w * 0.1, base_y + stage_h * 0.4, "HLG.L2", 255, 230, 170, st_halo_l2)
     
     # 右側
-    draw_fixture(base_x + stage_w * 0.9, base_y + stage_h * 0.4, "HLG.R1", 255, 180, 50, st_halo_r1)
+    draw_fixture(base_x + stage_w * 0.9, base_y + stage_h * 0.4, "HLG.R1", 255, 230, 170, st_halo_r1)
     draw_fixture(base_x + stage_w * 0.9, base_y + stage_h * 0.6, "STRB.R", strb_val, strb_val, strb_val, 1 if strb_val>0 else 0)
-    draw_fixture(base_x + stage_w * 0.9, base_y + stage_h * 0.8, "HLG.R2", 255, 180, 50, st_halo_r2)
+    draw_fixture(base_x + stage_w * 0.9, base_y + stage_h * 0.8, "HLG.R2", 255, 230, 170, st_halo_r2)
 
 
     # --- 目つぶし (ステージ中ほど左右) ---
-    # 暖色(Warm)と寒色(Cool)のフェーダー値を足し合わせて色を合成
-    blinder_r = min(255, int((st_blinder_warm * 1.0) + (st_blinder_cool * 0.8)))
-    blinder_g = min(255, int((st_blinder_warm * 0.7) + (st_blinder_cool * 0.9)))
-    blinder_b = min(255, int((st_blinder_warm * 0.2) + (st_blinder_cool * 1.0)))
-    blinder_on = 1 if (blinder_r + blinder_g + blinder_b) > 0 else 0
+    # 1. 値の取得
+    st_blinder_warm = a.controller_app_state.get("sim_blinder_warm", 0)
+    st_blinder_cool = a.controller_app_state.get("sim_blinder_cool", 0)
+    st_blinder_switch = a.controller_app_state.get("sim_blinder_switch", 1) # デフォルトON
+
+    # 2. デバッグ表示
+    g.rgbcolor(0xFFFFFF)
+    g.pos(base_x + stage_w * 0.5, base_y + stage_h * 0.6)
+    switch_text = "ON" if st_blinder_switch == 1 else "OFF"
+    g.text(f"BLINDER WARM: {st_blinder_warm} / COOL: {st_blinder_cool} [SW: {switch_text}]", 1)
+
+    # 3. 色の計算
+    blinder_r, blinder_g, blinder_b, blinder_on = 0, 0, 0, 0
+
+    # ▼▼▼ 修正： `is_bo` の判定を削除し、専用スイッチ(`st_blinder_switch`)だけで判定する ▼▼▼
+    if st_blinder_switch == 1:
+        
+        # フェーダー値から直接RGBを計算
+        r_val = int((st_blinder_warm * 1.0) + (st_blinder_cool * 0.8))
+        g_val = int((st_blinder_warm * 0.9) + (st_blinder_cool * 0.9))
+        b_val = int((st_blinder_warm * 0.6) + (st_blinder_cool * 1.0))
+
+        # 255を超えないようにクリップ
+        blinder_r = min(255, r_val)
+        blinder_g = min(255, g_val)
+        blinder_b = min(255, b_val)
+
+        # どれか一つの色成分でも 0 より大きければ「ON状態(点灯)」とする
+        if blinder_r > 0 or blinder_g > 0 or blinder_b > 0:
+            blinder_on = 1
+
     
-    draw_fixture(base_x + stage_w // 3, base_y + 100, "BLND.L", blinder_r, blinder_g, blinder_b, blinder_on)
-    draw_fixture(base_x + stage_w * 2 // 3 - 24, base_y + 100, "BLND.R", blinder_r, blinder_g, blinder_b, blinder_on)
+    draw_fixture(base_x + stage_w // 3, base_y + stage_h * 0.4, "BLND.L", blinder_r, blinder_g, blinder_b, blinder_on)
+    draw_fixture(base_x + stage_w * 2 // 3 - 24, base_y + stage_h * 0.4, "BLND.R", blinder_r, blinder_g, blinder_b, blinder_on)
 
 
     # --- ムービング (ステージ前左右) ---
     # 白くピカッと光る表現
-    draw_fixture(base_x + stage_w // 4, base_y + 200, "MOV.L", 220, 240, 255, st_moving)
-    draw_fixture(base_x + stage_w * 3 // 4 - 24, base_y + 200, "MOV.R", 220, 240, 255, st_moving)
+    draw_fixture(base_x + stage_w // 4, base_y + stage_h * 0.6, "MOV.L", 220, 240, 255, st_moving)
+    draw_fixture(base_x + stage_w * 3 // 4 - 24, base_y + stage_h * 0.6, "MOV.R", 220, 240, 255, st_moving)
 
         
     # --- 既存の論理デバイス (マルチピクセル・マルチ座標対応) ---
@@ -330,26 +355,26 @@ def app_draw_simulator() -> None:
                 
                 draw_fixture(rel_x, rel_y, display_name, current_r, current_g, current_b, is_on)
 
-    # --- LED TAPE ---
-    # ステージの最前列（手前）に横長に配置
-    tape_colors = a.controller_app_state.get("tape-current-colors", [])
-    tape_start_x = base_x + 80
-    tape_start_y = base_y + 250
-    tape_dot_width = 3 
+    # # --- LED TAPE ---
+    # # ステージの最前列（手前）に横長に配置
+    # tape_colors = a.controller_app_state.get("tape-current-colors", [])
+    # tape_start_x = base_x + 80
+    # tape_start_y = base_y + 250
+    # tape_dot_width = 3 
     
-    if len(tape_colors) > 0:
-        g.align("left")
-        g.pos(tape_start_x - 70, tape_start_y)
-        g.rgbcolor(0x888888)
-        g.text("TAPE>", 1)
+    # if len(tape_colors) > 0:
+    #     g.align("left")
+    #     g.pos(tape_start_x - 70, tape_start_y)
+    #     g.rgbcolor(0x888888)
+    #     g.text("TAPE>", 1)
         
-        for i, color_tuple in enumerate(tape_colors):
-            r, g_val, b_val = color_tuple
-            dot_x = tape_start_x + (i * tape_dot_width)
-            if dot_x > base_x + stage_w - 80: break # はみ出し防止
+    #     for i, color_tuple in enumerate(tape_colors):
+    #         r, g_val, b_val = color_tuple
+    #         dot_x = tape_start_x + (i * tape_dot_width)
+    #         if dot_x > base_x + stage_w - 80: break # はみ出し防止
             
-            g.color(r, g_val, b_val)
-            g.fill(dot_x, tape_start_y, dot_x + tape_dot_width - 1, tape_start_y + 10)
+    #         g.color(r, g_val, b_val)
+    #         g.fill(dot_x, tape_start_y, dot_x + tape_dot_width - 1, tape_start_y + 10)
 
 # 画面の再描画
 def app_draw_screen() -> None:
@@ -733,6 +758,36 @@ def keydown_proc_live(keyunicode: str, keyscancode: int) -> None:
     elif keyscancode == 5:
         # B: toggle half/full
         tape_toggle_half()
+    elif keyunicode.lower() == 'q': # 数字の1
+        a.controller_app_state["sim_halo_l1"] ^= 1  # 0と1を反転(トグル)
+    elif keyunicode.lower() == 'w':
+        a.controller_app_state["sim_halo_l2"] ^= 1
+    elif keyunicode.lower() == 'e':
+        a.controller_app_state["sim_halo_r1"] ^= 1
+    elif keyunicode.lower() == 'r':
+        a.controller_app_state["sim_halo_r2"] ^= 1
+    elif keyunicode.lower() == 't': # tキー: ストロボ
+        a.controller_app_state["sim_strobe"] ^= 1
+    elif keyunicode.lower() == 'y': # yキー: ムービング (被る場合は別のキーへ)
+        a.controller_app_state["sim_moving"] ^= 1
+    elif keyunicode.lower() == 'a': # aキー: 左スモーク
+        a.controller_app_state["sim_smoke_l"] ^= 1
+    elif keyunicode.lower() == 's': # sキー: 右スモーク
+        a.controller_app_state["sim_smoke_r"] ^= 1
+        
+    # フェーダー系の機材 (押すたびに15ずつ増減させる)
+    elif keyunicode.lower() == 'd': # dキー: 暖色 UP
+        a.controller_app_state["sim_blinder_warm"] = min(255, a.controller_app_state["sim_blinder_warm"] + 15)
+    elif keyunicode.lower() == 'c': # cキー: 暖色 DOWN
+        a.controller_app_state["sim_blinder_warm"] = max(0, a.controller_app_state["sim_blinder_warm"] - 15)
+    elif keyunicode.lower() == 'f': # fキー: 寒色 UP
+        a.controller_app_state["sim_blinder_cool"] = min(255, a.controller_app_state["sim_blinder_cool"] + 15)
+    elif keyunicode.lower() == 'v': # vキー: 寒色 DOWN
+        a.controller_app_state["sim_blinder_cool"] = max(0, a.controller_app_state["sim_blinder_cool"] - 15)
+    elif keyunicode and keyunicode.lower() == 'g': # gキー: 目つぶしスイッチ
+        # 現在の状態を反転させる (デフォルトは ON=1 とします)
+        # もし未定義(初回)なら、0にしてOFFにする
+        a.controller_app_state["sim_blinder_switch"] = 1 - a.controller_app_state.get("sim_blinder_switch", 1)
     else:
         # KEYCONFにヒットするエントリーがあるか検索します
         if keyunicode.upper() in a.keyconf["charcodelist"]:
@@ -1030,6 +1085,16 @@ if __name__ == "__main__":
     a.controller_app_state["tape-ptn"] = 0
     a.controller_app_state["tape-fadebase-colors"] = []
     a.controller_app_state["tape-fadebase-timing"] = 0
+    a.controller_app_state["sim_halo_l1"] = 0
+    a.controller_app_state["sim_halo_l2"] = 0
+    a.controller_app_state["sim_halo_r1"] = 0
+    a.controller_app_state["sim_halo_r2"] = 0
+    a.controller_app_state["sim_strobe"] = 0
+    a.controller_app_state["sim_moving"] = 0
+    a.controller_app_state["sim_smoke_l"] = 0
+    a.controller_app_state["sim_smoke_r"] = 0
+    a.controller_app_state["sim_blinder_warm"] = 0  # 目つぶし(暖色) 0〜255
+    a.controller_app_state["sim_blinder_cool"] = 0  # 目つぶし(寒色) 0〜255
     # ↑ 100msあたりの変化量
     g = sgpg.sgpg()
     g.screen(0, 800, 500, 32)
