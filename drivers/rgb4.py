@@ -18,6 +18,7 @@ class light_driver:
             self.chm[0] +  9 : {"value": 0, "fade": 0.0},
             self.chm[0] + 10 : {"value": 0, "fade": 0.0},
             self.chm[0] + 11 : {"value": 0, "fade": 0.0},
+            self.chm[0] + 12 : {"value": 128, "fade": 0.0},# 13ch目(ディマー)を常にMAXの半分（128, 明るすぎるので）にする
         }
     def close(self) -> dict:
         return dict()
@@ -58,6 +59,7 @@ class light_driver:
         if param_name == "color1":
             self.color[0] = value
             return {
+                self.chm[0] +  0 : {"value": 128, "fade": fader},#Dimmer半分
                 self.chm[0] +  0 : {"value": value // 65536,       "fade": fader},
                 self.chm[0] +  1 : {"value": value % 65536 // 256, "fade": fader},
                 self.chm[0] +  2 : {"value": value % 256,          "fade": fader}
